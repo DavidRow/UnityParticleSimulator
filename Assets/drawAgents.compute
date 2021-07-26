@@ -1,0 +1,79 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel drawAgents
+
+#pragma kernel darken
+
+
+
+
+struct Agent {
+	float2 position;
+	float angle;
+};
+
+
+RWTexture2D<float4> Result;
+RWTexture2D<float4> DarkenedTexture;
+RWStructuredBuffer<Agent> agents;
+float deltaTime;
+float speed = 1;
+int width;
+int height;
+float time;
+uint numAgents;
+// Hash function www.cs.ubc.ca/~rbridson/docs/schechter-sca08-turbulence.pdf
+float hash(uint state){
+    state ^= 2747636419u;
+    state *= 2654435769u;
+    state ^= state >> 16;
+    state *= 2654435769u;
+    state ^= state >> 16;
+    state *= 2654435769u;
+    return state;
+}
+
+float scaleToRange01(uint state){
+    return state / 4294967295.0;
+}
+
+[numthreads(8,1,1)]
+void drawAgents (uint3 id : SV_DispatchThreadID)
+{
+	if (id.x >= numAgents) {
+		return;
+	}
+	//setup
+    Agent agent = agents[id.x];
+    float2 position = agent.position;
+
+	//get the new position
+    float angle = agent.angle;
+    float2 newPos = float2(position.x + cos(angle) * deltaTime, position.y + sin(angle) *deltaTime) ;
+
+	//check if we are in bounds
+	if (newPos.x < 0 || newPos.x >= width || newPos.y < 0 || newPos.y >= height) {
+		uint random = hash(position.y * width + position.x + hash((id.x + time) * 100000));
+		random = hash(random);
+		float randomAngle = scaleToRange01(random) * 2 * 3.1415;
+
+		newPos.x = min(width-1,max(0, newPos.x));
+		newPos.y = min(height-1,max(0, newPos.y));
+		agents[id.x].angle = randomAngle;
+	}
+	else {
+		agents[id.x].position = newPos;
+		Result[int2(newPos)] = float4(1, 1 ,1 , 0);
+	}
+	
+	
+}
+
+[numthreads(8,1,1)]
+void darken (uint3 id : SV_DispatchThreadID){
+
+    float4 color = Result[id.xy];
+
+    Result[id.xy] = max(0, color.x - 0.05f * deltaTime);
+}
+
+
