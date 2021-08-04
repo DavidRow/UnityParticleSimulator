@@ -13,7 +13,6 @@ struct Agent {
 
 
 RWTexture2D<float4> Result;
-RWTexture2D<float4> DarkenedTexture;
 RWStructuredBuffer<Agent> agents;
 float deltaTime;
 float speed = 1;
@@ -35,8 +34,27 @@ float hash(uint state){
 float scaleToRange01(uint state){
     return state / 4294967295.0;
 }
+float SumBox(float2 position){
 
-[numthreads(8,1,1)]
+	//find box borders
+	int maxX = position.x+1;	
+	int minX = position.x-1;	
+	int maxY =  position.y+1;	
+	int minY =  position.y-1;	
+	float sum = 0;
+
+	for(int x = minX; x < maxX; x++ ){
+		for(int y = minY; y < maxY; y++ ){
+			//Result[int2(x,y)] = float4(1,1,1,0);
+			sum += dot(1, Result[int2(x,y)]);
+		}
+	}
+	return sum;
+}
+
+
+
+[numthreads(64,1,1)]
 void drawAgents (uint3 id : SV_DispatchThreadID)
 {
 	if (id.x >= numAgents) {
@@ -47,14 +65,34 @@ void drawAgents (uint3 id : SV_DispatchThreadID)
     float2 position = agent.position;
 
 	//get the new position
+	float AngleMax = 2 * 3.1415;
     float angle = agent.angle;
-    float2 newPos = float2(position.x + cos(angle) * deltaTime, position.y + sin(angle) *deltaTime) ;
+	float cosangle = cos(angle);
+	float sinangle = sin(angle);
+    float2 newPos = float2(position.x + cosangle * deltaTime, position.y + sinangle *deltaTime) ;
+	float2 sensePos = float2(position.x + cosangle  * 5, position.y + sinangle * 5) ;
+	float2 senseLeft = float2(position.x + cos(angle -1)  * 5, position.y + sin(angle -1) * 5) ;
+	float2 senseRight = float2(position.x + cos(angle +1)  * 5, position.y + sin(angle +1) * 5) ;
 
+	//add the value of the boxes to the front, left, and right of you
+	float sumfront = SumBox( sensePos);
+	float sumleft = SumBox(senseLeft);
+	float sumright = SumBox(senseRight);
+	float tilt = sumright - sumleft;
+	float aSum = tilt + sumfront;
+	uint random = hash(position.y * width + position.x + hash((id.x + time) * 100000));
+	if(aSum != 0){
+		if(sumfront < sumright || sumfront < sumleft){
+			tilt = tilt +  scaleToRange01(random);
+		}
+		tilt = tilt /aSum;
+	}
+	agents[id.x].angle = angle + tilt * deltaTime;
 	//check if we are in bounds
-	if (newPos.x < 0 || newPos.x >= width || newPos.y < 0 || newPos.y >= height) {
-		uint random = hash(position.y * width + position.x + hash((id.x + time) * 100000));
+	if (newPos.x < 0 || newPos.x >= width || newPos.y < 0 || newPos.y >= height) {  
+		
 		random = hash(random);
-		float randomAngle = scaleToRange01(random) * 2 * 3.1415;
+		float randomAngle = scaleToRange01(random) * AngleMax;
 
 		newPos.x = min(width-1,max(0, newPos.x));
 		newPos.y = min(height-1,max(0, newPos.y));
@@ -62,18 +100,18 @@ void drawAgents (uint3 id : SV_DispatchThreadID)
 	}
 	else {
 		agents[id.x].position = newPos;
-		Result[int2(newPos)] = float4(1, 1 ,1 , 0);
+		Result[int2(newPos)] = float4(1, 0 ,1 , 0);
 	}
+
 	
 	
 }
 
-[numthreads(8,1,1)]
+[numthreads(8,8,1)]
 void darken (uint3 id : SV_DispatchThreadID){
 
     float4 color = Result[id.xy];
-
-    Result[id.xy] = max(0, color.x - 0.05f * deltaTime);
+    Result[id.xy] = max(0, color - 0.1f * deltaTime);
 }
 
 

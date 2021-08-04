@@ -13,12 +13,15 @@ public class ShaderProject : MonoBehaviour {
     ComputeBuffer agentsBuffer;
 
     private Agent[] agents;
-    private int KIdrawAgents = 0;
+    private int KIdrawAgents = 1;
     private int KIdarken = 0;
-    private int numAgents = 5000;
+    private int numAgents = 100000;
+    private int width = 500;
+    private int height = 500;
+    private int XthreadsAgents = 0;
+    int Xthreadsdarken = 0;
+    int Ythreadsdarken = 0;
 
-    private int width = 250;
-    private int height = 250;
 
     void Start(){
 
@@ -47,6 +50,10 @@ public class ShaderProject : MonoBehaviour {
         //set the ParticleTexture to the texture of the object we are on
         transform.GetComponentInChildren<Renderer>().material.mainTexture = ParticleTexture;
 
+        //get # of threads to put into compute shaders
+        XthreadsAgents =  Mathf.CeilToInt(numAgents/64f);
+        Xthreadsdarken = Mathf.CeilToInt(width/8f);
+        Ythreadsdarken =Mathf.CeilToInt(height/8f);
     }
 
     // Update is called once per frame
@@ -55,8 +62,8 @@ public class ShaderProject : MonoBehaviour {
         // set var to shader
         ParticleShader.SetFloat("time", Time.fixedTime);
         //run the shader
-        ParticleShader.Dispatch(KIdarken, width,height,1 );
-        ParticleShader.Dispatch(KIdrawAgents, numAgents,1,1 );
+        ParticleShader.Dispatch(KIdarken, Xthreadsdarken,Ythreadsdarken,1 );
+        ParticleShader.Dispatch(KIdrawAgents, XthreadsAgents,1,1 );
     }
     void OnDestroy()
 	{
