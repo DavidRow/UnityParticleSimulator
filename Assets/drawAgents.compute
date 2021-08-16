@@ -19,7 +19,8 @@ float speed = 1;
 int width;
 int height;
 float time;
-uint numAgents;
+// followON = 1, it follows, followON = 0, it dosent follow 
+int followON;
 // Hash function www.cs.ubc.ca/~rbridson/docs/schechter-sca08-turbulence.pdf
 float hash(uint state){
     state ^= 2747636419u;
@@ -54,25 +55,24 @@ float SumBox(float2 position){
 
 
 
-[numthreads(64,1,1)]
+[numthreads(512,1,1)]
 void drawAgents (uint3 id : SV_DispatchThreadID)
 {
-	if (id.x >= numAgents) {
-		return;
-	}
+
 	//setup
     Agent agent = agents[id.x];
     float2 position = agent.position;
 
 	//get the new position
-	float AngleMax = 2 * 3.1415;
+	
     float angle = agent.angle;
 	float cosangle = cos(angle);
 	float sinangle = sin(angle);
+	float multi = 3;
     float2 newPos = float2(position.x + cosangle * deltaTime, position.y + sinangle *deltaTime) ;
-	float2 sensePos = float2(position.x + cosangle  * 5, position.y + sinangle * 5) ;
-	float2 senseLeft = float2(position.x + cos(angle -1)  * 5, position.y + sin(angle -1) * 5) ;
-	float2 senseRight = float2(position.x + cos(angle +1)  * 5, position.y + sin(angle +1) * 5) ;
+	float2 sensePos = float2(position.x + cosangle  * multi, position.y + sinangle * multi) ;
+	float2 senseLeft = float2(position.x + cos(angle -1)  * multi, position.y + sin(angle -1) * multi) ;
+	float2 senseRight = float2(position.x + cos(angle +1)  * multi, position.y + sin(angle +1) * multi) ;
 
 	//add the value of the boxes to the front, left, and right of you
 	float sumfront = SumBox( sensePos);
@@ -80,17 +80,16 @@ void drawAgents (uint3 id : SV_DispatchThreadID)
 	float sumright = SumBox(senseRight);
 	float tilt = sumright - sumleft;
 	float aSum = tilt + sumfront;
-	uint random = hash(position.y * width + position.x + hash((id.x + time) * 100000));
+
+	//then change the angle depending on what those boxes had in them 
 	if(aSum != 0){
-		if(sumfront < sumright || sumfront < sumleft){
-			tilt = tilt +  scaleToRange01(random);
-		}
 		tilt = tilt /aSum;
 	}
-	agents[id.x].angle = angle + tilt * deltaTime;
+	agents[id.x].angle = angle + (tilt * deltaTime) * followON;
 	//check if we are in bounds
 	if (newPos.x < 0 || newPos.x >= width || newPos.y < 0 || newPos.y >= height) {  
-		
+		float AngleMax = 2 * 3.1415;
+		uint random = hash(position.y * width + position.x + hash((id.x + time) * 100000));
 		random = hash(random);
 		float randomAngle = scaleToRange01(random) * AngleMax;
 
@@ -107,7 +106,7 @@ void drawAgents (uint3 id : SV_DispatchThreadID)
 	
 }
 
-[numthreads(8,8,1)]
+[numthreads(32,32,1)]
 void darken (uint3 id : SV_DispatchThreadID){
 
     float4 color = Result[id.xy];

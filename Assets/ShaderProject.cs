@@ -9,15 +9,16 @@ public class ShaderProject : MonoBehaviour {
     //setup stuff
     public ComputeShader ParticleShader;
     public RenderTexture ParticleTexture;
-    public RenderTexture Another;
+    public int followON = 0;
+
     ComputeBuffer agentsBuffer;
 
     private Agent[] agents;
     private int KIdrawAgents = 1;
     private int KIdarken = 0;
-    private int numAgents = 100000;
-    private int width = 500;
-    private int height = 500;
+    private int numAgents = 10000;
+    private int width = 200;
+    private int height = 200;
     private int XthreadsAgents = 0;
     int Xthreadsdarken = 0;
     int Ythreadsdarken = 0;
@@ -30,7 +31,8 @@ public class ShaderProject : MonoBehaviour {
         
         //make a list of agents
         agents =  Helper.makeAgents(numAgents, width, height);
- 
+        //agents = Helper.makeAgentsInCircleAngleCenter(numAgents, width, height, 50 );
+
         //get the IDs of the shaders
         KIdrawAgents = ParticleShader.FindKernel("drawAgents");
         KIdarken = ParticleShader.FindKernel("darken");
@@ -38,7 +40,6 @@ public class ShaderProject : MonoBehaviour {
         //set all the var to the shaders
         ParticleShader.SetInt("width", width);
         ParticleShader.SetInt("height", height);
-        ParticleShader.SetInt("numAgents", numAgents);
         int stride = System.Runtime.InteropServices.Marshal.SizeOf(typeof(Agent));
         agentsBuffer = new ComputeBuffer(numAgents,stride);
         agentsBuffer.SetData(agents);
@@ -51,9 +52,9 @@ public class ShaderProject : MonoBehaviour {
         transform.GetComponentInChildren<Renderer>().material.mainTexture = ParticleTexture;
 
         //get # of threads to put into compute shaders
-        XthreadsAgents =  Mathf.CeilToInt(numAgents/64f);
-        Xthreadsdarken = Mathf.CeilToInt(width/8f);
-        Ythreadsdarken =Mathf.CeilToInt(height/8f);
+        XthreadsAgents =  Mathf.CeilToInt(numAgents/512f);
+        Xthreadsdarken = Mathf.CeilToInt(width/32f);
+        Ythreadsdarken =Mathf.CeilToInt(height/32f);
     }
 
     // Update is called once per frame
@@ -61,6 +62,8 @@ public class ShaderProject : MonoBehaviour {
     {
         // set var to shader
         ParticleShader.SetFloat("time", Time.fixedTime);
+        ParticleShader.SetInt("followON", followON);
+
         //run the shader
         ParticleShader.Dispatch(KIdarken, Xthreadsdarken,Ythreadsdarken,1 );
         ParticleShader.Dispatch(KIdrawAgents, XthreadsAgents,1,1 );
