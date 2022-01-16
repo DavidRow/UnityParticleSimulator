@@ -24,7 +24,7 @@ public class ShaderProject : MonoBehaviour {
     private int XthreadsAgents = 0;
     int Xthreadsdarken = 0;
     int Ythreadsdarken = 0;
-    Vector4 color1 = new Vector4(1 , 0 , 0 , 0);
+    Vector4 color1 = new Vector4(1 , 0 , 1 , 0);
     Vector4 color2 = new Vector4(0 , 1 , 0 , 0);
     //Vector4 color3 = new Vector4(0 , 0 , 1 , 0);
     //Vector4 color4 = new Vector4(1 , 1 , 1 , 0);
